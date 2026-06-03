@@ -1,0 +1,36 @@
+---
+- name: Base
+  hosts: all
+  become: true
+  roles:
+    - base
+
+- name: Redis
+  hosts: redis
+  become: true
+  roles:
+    - redis
+
+- name: Postgresql
+  hosts: postgresql
+  become: true
+  roles:
+    - postgresql
+
+- name: Poll
+  hosts: poll
+  become: true
+  roles:
+    - poll
+
+- name: Result
+  hosts: result
+  become: true
+  roles:
+    - result
+
+- name: Worker
+  hosts: worker
+  become: true
+  roles:
+    - worker
