@@ -1,0 +1,23 @@
+---
+# roles/redis/tasks/main.yml
+
+- name: Install Redis
+  ansible.builtin.apt:
+    name: redis-server
+    state: present
+    update_cache: yes
+
+- name: Copy redis.conf
+  ansible.builtin.copy:
+    src: redis.conf
+    dest: /etc/redis/redis.conf
+    owner: redis
+    group: redis
+    mode: '0640'
+  notify: Restart Redis service
+
+- name: Verify is Redis is running and on boot
+  ansible.builtin.systemd_service:
+    name: redis-server
+    state: started
+    enabled: yes
