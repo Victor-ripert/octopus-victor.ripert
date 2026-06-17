@@ -1,0 +1,24 @@
+---
+# roles/base/tasks/main.yml
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install basic tools
+  ansible.builtin.apt:
+    name:
+      - curl
+      - wget
+      - git
+      - htop
+      - vim
+      - ufw
+    state: present
+
+- name: Allow SSH in UFW
+  community.general.ufw:
+    rule: allow
+    name: OpenSSH
+    state: enabled
