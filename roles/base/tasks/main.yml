@@ -1,0 +1,32 @@
+---
+- name: Ensure DNS resolver is configured
+  ansible.builtin.copy:
+    dest: /etc/resolv.conf
+    content: |
+      nameserver 8.8.8.8
+      nameserver 1.1.1.1
+    mode: '0644'
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - curl
+      - git
+      - vim
+      - htop
+      - net-tools
+      - ca-certificates
+      - gnupg
+      - unzip
+      - python3
+      - python3-pip
+    state: present
+
+- name: Set system timezone
+  community.general.timezone:
+    name: Europe/Madrid
