@@ -1,0 +1,43 @@
+---
+- name: Install Node.js
+  ansible.builtin.apt:
+    name:
+      - nodejs
+      - npm
+    state: present
+  become: true
+
+- name: Create /opt/result directory
+  ansible.builtin.file:
+    path: /opt/result
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Upload result archive
+  ansible.builtin.unarchive:
+    src: "{{ playbook_dir }}/result.tar"
+    dest: /opt/result
+    creates: /opt/result/package.json
+  become: true
+
+- name: Install Node dependencies
+  community.general.npm:
+    path: /opt/result
+    state: present
+  become: true
+
+- name: Deploy result systemd service
+  ansible.builtin.template:
+    src: result.service.j2
+    dest: /etc/systemd/system/result.service
+  become: true
+  notify: Reload systemd
+
+- name: Enable and start result
+  ansible.builtin.systemd:
+    name: result
+    enabled: true
+    state: started
+    daemon_reload: true
+  become: true
