@@ -1,0 +1,15 @@
+[Unit]
+Description=Poll web client
+After=network.target
+
+[Service]
+Environment=REDIS_HOST=redis-1
+Environment=REDIS_PORT=6379
+Environment=PORT=80
+WorkingDirectory=/opt/poll
+ExecStart=/opt/poll/venv/bin/python3 app.py
+Restart=on-failure
+User=root
+
+[Install]
+WantedBy=multi-user.target
