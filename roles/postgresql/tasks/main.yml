@@ -1,0 +1,117 @@
+---
+- name: Add PostgreSQL 16 apt repository
+  ansible.builtin.deb822_repository:
+    name: pgdg
+    types: deb
+    uris: "https://apt.postgresql.org/pub/repos/apt"
+    suites: "trixie-pgdg"
+    components: main
+    signed_by: "https://www.postgresql.org/media/keys/ACCC4CF8.asc"
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Remove PostgreSQL 17 and generic meta-packages if present
+  ansible.builtin.apt:
+    name:
+      - postgresql-17
+      - postgresql
+      - postgresql-contrib
+    state: absent
+    purge: true
+
+- name: Install PostgreSQL 16 and dependencies
+  ansible.builtin.apt:
+    name:
+      - postgresql-16
+      - postgresql-contrib-16
+      - python3-psycopg2
+    state: present
+
+- name: Check if PostgreSQL 16 cluster config exists
+  ansible.builtin.stat:
+    path: /etc/postgresql/16/main/postgresql.conf
+  register: pg16_conf
+
+- name: Create PostgreSQL 16 main cluster if missing
+  ansible.builtin.command:
+    cmd: pg_createcluster 16 main --start
+  when: not pg16_conf.stat.exists
+
+- name: Verify PostgreSQL 16 config directory exists
+  ansible.builtin.stat:
+    path: /etc/postgresql/16/main
+  register: pg16_dir
+
+- name: Fail early if PostgreSQL 16 was not installed correctly
+  ansible.builtin.assert:
+    that: pg16_dir.stat.exists
+    fail_msg: "PostgreSQL 16 config directory still not found after cluster creation attempt."
+
+- name: Ensure PostgreSQL 16 is enabled and started
+  ansible.builtin.systemd:
+    name: "postgresql@16-main"
+    enabled: true
+    state: started
+
+- name: Configure PostgreSQL to listen on all interfaces
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/16/main/postgresql.conf
+    regexp: '^#?listen_addresses\s*='
+    line: "listen_addresses = '*'"
+  notify: Restart postgresql
+
+- name: Deploy pg_hba.conf
+  ansible.builtin.copy:
+    src: pg_hba.conf
+    dest: /etc/postgresql/16/main/pg_hba.conf
+    owner: postgres
+    group: postgres
+    mode: '0640'
+  notify: Restart postgresql
+
+- name: Upload schema.sql
+  ansible.builtin.copy:
+    src: schema.sql
+    dest: /tmp/schema.sql
+    mode: '0644'
+
+- name: Create paul database user
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_user:
+    name: paul
+    password: "{{ db_password }}"
+    role_attr_flags: NOSUPERUSER,NOCREATEDB,NOCREATEROLE
+
+- name: Create paul database
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_db:
+    name: paul
+    owner: paul
+
+- name: Grant paul privileges on votes table
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_privs:
+    db: paul
+    role: paul
+    type: table
+    objs: votes
+    privs: SELECT,INSERT,UPDATE,DELETE
+    login_db: paul
+
+- name: Read schema.sql content
+  ansible.builtin.slurp:
+    src: /tmp/schema.sql
+  register: schema_content
+
+- name: Deploy database schema
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_query:
+    login_db: paul
+    query: "{{ schema_content.content | b64decode }}"
+  changed_when: false
