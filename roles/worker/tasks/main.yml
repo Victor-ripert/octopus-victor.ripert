@@ -1,0 +1,38 @@
+---
+- name: Install JDK and Maven
+  ansible.builtin.apt:
+    name:
+      - default-jdk
+      - maven
+    state: present
+
+- name: Create worker directory
+  ansible.builtin.file:
+    path: /opt/worker
+    state: directory
+    mode: '0755'
+
+- name: Upload worker archive
+  ansible.builtin.unarchive:
+    src: "{{ playbook_dir }}/worker.tar"
+    dest: /opt/worker
+    creates: /opt/worker/pom.xml
+
+- name: Build worker jar
+  ansible.builtin.command:
+    cmd: mvn -f /opt/worker/pom.xml package -DskipTests
+    creates: /opt/worker/target/worker-jar-with-dependencies.jar
+
+- name: Deploy worker systemd service
+  ansible.builtin.template:
+    src: worker.service.j2
+    dest: /etc/systemd/system/worker.service
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Enable and start worker service
+  ansible.builtin.systemd:
+    name: worker
+    enabled: true
+    state: started
+    daemon_reload: true
